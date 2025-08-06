@@ -88,42 +88,46 @@ jobs:
         run: docker run --rm habits-tracker python -c "import django; print('Django import successful')"
 
   deploy:
-    needs: [test, build]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/heads/feature') || startsWith(github.ref, 'refs/heads/develop')
+    needs: test
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Write SSH key to file
-        run: |
-          echo -e "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
-          chmod 600 key.pem
-
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.0
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.8.1
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.USERNAME }}
-          key_path: key.pem
-          script: |
-            cd /home/${{ secrets.USERNAME }}
-            if [ ! -d "habits-tracker" ]; then
-              git clone https://github.com/andyAlem/PythonProject5_tracker.git habits-tracker
-            fi
-            cd habits-tracker
-            docker-compose down || true
-            git pull origin $(git rev-parse --abbrev-ref HEAD)
-            echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" > .env
-            echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" >> .env
-            echo "CELERY_BROKER_URL=${{ secrets.CELERY_BROKER_URL }}" >> .env
-            echo "CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }}" >> .env
-            echo "NAME=${{ secrets.NAME }}" >> .env
-            echo "USER=${{ secrets.USER }}" >> .env
-            echo "PASSWORD=${{ secrets.PASSWORD }}" >> .env
-            echo "HOST=${{ secrets.HOST }}" >> .env
-            echo "PORT=${{ secrets.PORT }}" >> .env
-            docker-compose build --no-cache
-            docker-compose up -d
-            docker image prune -f
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Copy project files to server
+        run: |
+          rsync -avz --exclude '__pycache__' . ${{ secrets.USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_DIR }}
+
+      - name: Install dependencies on server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            cd ${{ secrets.DEPLOY_DIR }}
+            python3 -m venv venv
+            source venv/bin/activate
+            pip install -r requirements.txt
+          EOF
+
+      - name: Apply migrations on server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            cd ${{ secrets.DEPLOY_DIR }}
+            source venv/bin/activate
+            python manage.py migrate
+          EOF
+
+      - name: Collect static files on server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            cd ${{ secrets.DEPLOY_DIR }}
+            source venv/bin/activate
+            python manage.py collectstatic --noinput
+          EOF
+
+      - name: Restart application
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            sudo systemctl restart myapp.service
+          EOF
