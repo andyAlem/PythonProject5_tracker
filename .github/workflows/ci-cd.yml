@@ -98,7 +98,7 @@ jobs:
 
       - name: Write SSH key to file
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+          echo -e "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
           chmod 600 key.pem
 
       - name: Deploy to server
