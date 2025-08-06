@@ -102,11 +102,11 @@ jobs:
 
       - name: Copy project files to server
         run: |
-          rsync -avz --exclude '__pycache__' . ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_DIR }}
+          rsync -avz --exclude '__pycache__' . ${{ secrets.SSH_USERNAME }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_DIR }}
 
       - name: Install dependencies on server
         run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+          ssh ${{ secrets.SSH_USERNAME }}@${{ secrets.SERVER_HOST }} << 'EOF'
             cd ${{ secrets.DEPLOY_DIR }}
             python3 -m venv venv
             source venv/bin/activate
@@ -115,7 +115,7 @@ jobs:
 
       - name: Apply migrations on server
         run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+          ssh ${{ secrets.SSH_USERNAME }}@${{ secrets.SERVER_HOST }} << 'EOF'
             cd ${{ secrets.DEPLOY_DIR }}
             source venv/bin/activate
             python manage.py migrate
