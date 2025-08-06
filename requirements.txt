@@ -10,3 +10,5 @@ pytest~=8.4.1
 drf-spectacular~=0.28.0
 requests~=2.32.4
 django-celery-beat~=2.8.1
+
+gunicorn==21.2.0
