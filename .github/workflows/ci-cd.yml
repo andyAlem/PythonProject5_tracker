@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ feature, develop ]
+    branches: [feature, develop]
   pull_request:
-    branches: [ develop ]
+    branches: [develop]
 
 jobs:
   test:
@@ -52,16 +52,16 @@ jobs:
     - name: Create .env file
       run: |
         cat << EOF > .env
-        SECRET_KEY=test-secret-key-for-github-actions
-        NAME=test_db
-        USER=postgres
-        PASSWORD=postgres
-        HOST=localhost
-        PORT=5432
-        TELEGRAM_BOT_TOKEN=test-bot-token
-        CELERY_BROKER_URL=redis://localhost:6379/0
-        CELERY_RESULT_BACKEND=redis://localhost:6379/0
-        EOF
+SECRET_KEY=test-secret-key-for-github-actions
+NAME=test_db
+USER=postgres
+PASSWORD=postgres
+HOST=localhost
+PORT=5432
+TELEGRAM_BOT_TOKEN=test-bot-token
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
+EOF
 
     - name: Run linting
       run: |
@@ -69,12 +69,10 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
     - name: Run migrations
-      run: |
-        python manage.py migrate
+      run: python manage.py migrate
 
     - name: Run tests
-      run: |
-        python manage.py test
+      run: python manage.py test
 
   build:
     needs: test
@@ -84,12 +82,10 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Build Docker image
-      run: |
-        docker build -t habits-tracker .
+      run: docker build -t habits-tracker .
 
     - name: Test Docker image
-      run: |
-        docker run --rm habits-tracker python -c "import django; print('Django import successful')"
+      run: docker run --rm habits-tracker python -c "import django; print('Django import successful')"
 
   deploy:
     needs: [test, build]
@@ -101,7 +97,7 @@ jobs:
 
     - name: Write SSH key to file
       run: |
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ./key.pem
+        printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ./key.pem
         chmod 600 ./key.pem
 
     - name: Deploy to server
@@ -123,16 +119,16 @@ jobs:
           git pull origin feature
 
           cat << EOF > .env
-          SECRET_KEY=${{ secrets.SECRET_KEY }}
-          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
-          CELERY_BROKER_URL=${{ secrets.CELERY_BROKER_URL }}
-          CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }}
-          NAME=${{ secrets.NAME }}
-          USER=${{ secrets.USER }}
-          PASSWORD=${{ secrets.PASSWORD }}
-          HOST=${{ secrets.HOST }}
-          PORT=${{ secrets.PORT }}
-          EOF
+SECRET_KEY=${{ secrets.SECRET_KEY }}
+TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+CELERY_BROKER_URL=${{ secrets.CELERY_BROKER_URL }}
+CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }}
+NAME=${{ secrets.NAME }}
+USER=${{ secrets.USER }}
+PASSWORD=${{ secrets.PASSWORD }}
+HOST=${{ secrets.HOST }}
+PORT=${{ secrets.PORT }}
+EOF
 
           docker-compose build --no-cache
           docker-compose up -d
