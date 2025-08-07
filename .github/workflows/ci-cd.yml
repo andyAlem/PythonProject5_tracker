@@ -1,0 +1,69 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches: [feature]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            echo "=== SSH Connection Successful! ==="
+            echo "Current user: $(whoami)"
+            echo "Current directory: $(pwd)"
+            echo "Server hostname: $(hostname)"
+            echo "Date: $(date)"
+            echo ""
+            
+            echo "=== Navigating to project directory ==="
+            cd ${{ secrets.DEPLOY_DIR }} || exit 1
+            echo "Current directory: $(pwd)"
+            echo ""
+            
+            echo "=== Pulling latest changes ==="
+            git pull origin main
+            echo ""
+            
+            echo "=== Checking Docker status ==="
+            docker --version
+            docker compose version
+            echo ""
+            
+            echo "=== Stopping existing containers ==="
+            docker compose -f docker-compose.prod.yml down || true
+            echo ""
+            
+            echo "=== Building and starting containers ==="
+            docker compose -f docker-compose.prod.yml up -d --build
+            echo ""
+            
+            echo "=== Waiting for containers to initialize ==="
+            sleep 30
+            echo ""
+            
+            echo "=== Checking container status ==="
+            docker compose -f docker-compose.prod.yml ps
+            echo ""
+            
+            echo "=== Running migrations ==="
+            docker compose -f docker-compose.prod.yml exec -T web python manage.py migrate || echo "Migration failed, but continuing..."
+            echo ""
+            
+            echo "=== Collecting static files ==="
+            docker compose -f docker-compose.prod.yml exec -T web python manage.py collectstatic --noinput || echo "Static collection failed, but continuing..."
+            echo ""
+            
+            echo "=== Final container status ==="
+            docker compose -f docker-compose.prod.yml ps
+            echo ""
+            
+            echo "=== Deployment completed! ==="
